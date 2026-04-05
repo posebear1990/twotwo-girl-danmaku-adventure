@@ -1,0 +1,218 @@
+@font-face {
+  font-family: "Silkscreen";
+  src: url("./assets/Silkscreen-Regular.ttf?inline") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Silkscreen";
+  src: url("./assets/Silkscreen-Bold.ttf?inline") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+.twotwo-girl-danmaku-adventure-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 40;
+  overflow: hidden;
+  contain: layout paint size style;
+}
+
+.twotwo-girl-danmaku-adventure-root[hidden] {
+  display: none;
+}
+
+.twotwo-girl-danmaku-adventure-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.twotwo-girl-danmaku-adventure-hud-dock {
+  --twotwo-girl-hud-text: #f4f8ff;
+  --twotwo-girl-hud-muted: #d7e4f3;
+  --twotwo-girl-hud-accent: #ffd54d;
+  --twotwo-girl-hud-score: #8ad8ff;
+  --twotwo-girl-hud-shadow: rgba(3, 10, 28, 0.86);
+  --twotwo-girl-hud-achievement: #ffe27a;
+  --twotwo-girl-hud-achievement-glow: rgba(255, 194, 40, 0.6);
+  --twotwo-girl-hud-achievement-edge: #fff4b0;
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 41;
+}
+
+.twotwo-girl-danmaku-adventure-hud-dock[data-theme="light"] {
+  --twotwo-girl-hud-text: #122032;
+  --twotwo-girl-hud-muted: #334155;
+  --twotwo-girl-hud-accent: #c2410c;
+  --twotwo-girl-hud-score: #1d4ed8;
+  --twotwo-girl-hud-shadow: rgba(255, 255, 255, 0.94);
+  --twotwo-girl-hud-achievement: #b45309;
+  --twotwo-girl-hud-achievement-glow: rgba(251, 191, 36, 0.38);
+  --twotwo-girl-hud-achievement-edge: #fef3c7;
+}
+
+.twotwo-girl-danmaku-adventure-hud-dock[data-mode="inline"] {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: block;
+  margin: 0;
+  padding: 0 14px 6px;
+  transform: translateY(calc(-100% - 4px));
+}
+
+.twotwo-girl-danmaku-adventure-hud-dock[data-mode="fullscreen"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  padding: 14px 16px 0;
+}
+
+.twotwo-girl-danmaku-adventure-hud {
+  position: relative;
+  display: none;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  pointer-events: none;
+  font-family: "Silkscreen", "Press Start 2P", monospace;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: geometricPrecision;
+  color: var(--twotwo-girl-hud-text);
+  display: none;
+}
+
+.twotwo-girl-danmaku-adventure-hud[data-visible="true"] {
+  display: grid;
+}
+
+.twotwo-girl-danmaku-adventure-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  grid-column: 1;
+  grid-row: 1;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  line-height: 1;
+  justify-self: start;
+  text-shadow:
+    1px 1px 0 var(--twotwo-girl-hud-shadow),
+    0 0 6px color-mix(in srgb, var(--twotwo-girl-hud-shadow) 70%, transparent);
+}
+
+.twotwo-girl-danmaku-adventure-score-label {
+  color: var(--twotwo-girl-hud-score);
+}
+
+.twotwo-girl-danmaku-adventure-score-value {
+  color: var(--twotwo-girl-hud-accent);
+}
+
+.twotwo-girl-danmaku-adventure-start {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--twotwo-girl-hud-accent);
+  text-shadow:
+    1px 1px 0 var(--twotwo-girl-hud-shadow),
+    0 0 8px color-mix(in srgb, var(--twotwo-girl-hud-shadow) 72%, transparent);
+  white-space: nowrap;
+}
+
+.twotwo-girl-danmaku-adventure-start[data-visible="true"] {
+  display: block;
+}
+
+.twotwo-girl-danmaku-adventure-start[data-mode="achievement"] {
+  position: absolute;
+  padding: 0 16px;
+  width: max-content;
+  color: var(--twotwo-girl-hud-achievement);
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  text-shadow:
+    0 -1px 0 var(--twotwo-girl-hud-achievement-edge),
+    1px 1px 0 var(--twotwo-girl-hud-shadow),
+    0 0 10px var(--twotwo-girl-hud-achievement-glow),
+    0 0 18px color-mix(in srgb, var(--twotwo-girl-hud-achievement-glow) 72%, transparent);
+}
+
+.twotwo-girl-danmaku-adventure-start[data-mode="achievement"]::before,
+.twotwo-girl-danmaku-adventure-start[data-mode="achievement"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 16'%3E%3Cpath d='M14.5 15V1.5' stroke='%23ffd65c' stroke-width='1.5' stroke-linecap='square'/%3E%3Cpath d='M14.5 4L10.5 2.3M14.5 6.2L10.2 4.9M14.5 8.3L10.2 7.8M14.5 10.4L10.2 10.7M14.5 12.6L10.5 13.5' stroke='%23fff1a6' stroke-width='1.4' stroke-linecap='square'/%3E%3Cpath d='M14.5 5L16.8 3.8M14.5 7.1L16.8 6.6M14.5 9.2L16.8 9.4M14.5 11.3L16.8 12.2' stroke='%23e0a91d' stroke-width='1.2' stroke-linecap='square'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.98;
+  filter: drop-shadow(1px 1px 0 var(--twotwo-girl-hud-shadow)) drop-shadow(0 0 6px var(--twotwo-girl-hud-achievement-glow));
+  transform-origin: 50% 50%;
+}
+
+.twotwo-girl-danmaku-adventure-start[data-mode="achievement"]::before {
+  left: 1px;
+  transform: translateY(-50%) scaleX(-1) rotate(34deg);
+}
+
+.twotwo-girl-danmaku-adventure-start[data-mode="achievement"]::after {
+  right: 1px;
+  transform: translateY(-50%) rotate(34deg);
+}
+
+.twotwo-girl-danmaku-adventure-hint {
+  display: block;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  max-width: none;
+  font-size: clamp(6px, 0.68vw, 9px);
+  line-height: 1.2;
+  text-align: right;
+  justify-self: end;
+  color: var(--twotwo-girl-hud-muted);
+  text-shadow:
+    1px 1px 0 var(--twotwo-girl-hud-shadow),
+    0 0 6px color-mix(in srgb, var(--twotwo-girl-hud-shadow) 68%, transparent);
+  white-space: nowrap;
+}
+
+.twotwo-girl-danmaku-adventure-seek-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: none;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.twotwo-girl-danmaku-adventure-seek-rail[data-dragging="true"] {
+  cursor: grabbing;
+}

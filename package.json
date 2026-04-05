@@ -1,0 +1,16 @@
+{
+  "name": "twotwo-girl-danmaku-adventure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.4.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}
