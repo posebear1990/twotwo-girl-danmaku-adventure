@@ -1602,7 +1602,6 @@ export function createGameController(): { start(): void } {
     syncSeekRailInteractivity();
     syncHud();
     syncSeekCursor();
-    const seekRailBounds = canDragSeekRail() ? getSeekRailBounds() : null;
 
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1610,15 +1609,13 @@ export function createGameController(): { start(): void } {
 
     ctx.save();
     ctx.translate(0, activeRect.top - getOverlayTop());
-    if (seekRailBounds) {
+    if (canDragSeekRail()) {
       const railHeight = getSeekRailVisualHeight();
-      const railX = Math.round(seekRailBounds.left - activeRect.left);
-      const railWidth = Math.round(seekRailBounds.width);
-      const railY = Math.round(seekRailBounds.top - activeRect.top + (seekRailBounds.height - railHeight) * 0.5);
+      const railY = Math.round(getSeekRailCenterY() - railHeight * 0.5);
       ctx.fillStyle = "rgba(15, 23, 42, 0.18)";
-      ctx.fillRect(railX, railY, railWidth, railHeight);
+      ctx.fillRect(0, railY, activeRect.width, railHeight);
       ctx.fillStyle = "rgba(248, 250, 252, 0.34)";
-      ctx.fillRect(railX, railY, Math.round(railWidth * spring.progress), railHeight);
+      ctx.fillRect(0, railY, spring.x + spring.width * 0.5, railHeight);
     }
     if (spring.active) {
       drawSpring(ctx, spring);
