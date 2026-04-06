@@ -5,7 +5,7 @@ export default defineManifest({
   name: "22娘弹幕大冒险",
   description:
     "在哔哩哔哩播放器里操控像素风 22 娘，在弹幕上跳跃冒险。",
-  version: "0.1.1",
+  version: "0.1.2",
   icons: {
     16: "icons/icon-16.png",
     32: "icons/icon-32.png",
