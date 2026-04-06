@@ -34,6 +34,8 @@ const SPRING_IDLE_BOUNCE_RESET_COUNT = 5;
 const BASE_SEEK_RAIL_VISUAL_HEIGHT = 3;
 const BASE_SEEK_RAIL_HIT_HEIGHT = 26;
 const BASE_SEEK_RAIL_CENTER_OFFSET = 6;
+const BASE_SEEK_RAIL_VISUAL_CENTER_OFFSET = 3;
+const SEEK_RAIL_VISUAL_Y_NUDGE_PX = 3;
 const SEEK_RAIL_FALLBACK_LEFT_INSET_MIN = 72;
 const SEEK_RAIL_FALLBACK_LEFT_INSET_MAX = 148;
 const SEEK_RAIL_FALLBACK_RIGHT_INSET_MIN = 116;
@@ -778,6 +780,10 @@ export function createGameController(): { start(): void } {
 
   function getSeekRailCenterOffset(): number {
     return scaleWorld(BASE_SEEK_RAIL_CENTER_OFFSET);
+  }
+
+  function getSeekRailVisualCenterOffset(): number {
+    return scaleWorld(BASE_SEEK_RAIL_VISUAL_CENTER_OFFSET);
   }
 
   function getSeekRailFallbackLeftInset(): number {
@@ -1611,7 +1617,8 @@ export function createGameController(): { start(): void } {
     ctx.translate(0, activeRect.top - getOverlayTop());
     if (canDragSeekRail()) {
       const railHeight = getSeekRailVisualHeight();
-      const railY = Math.round(getSeekRailCenterY() - railHeight * 0.5);
+      const railCenterY = spring.y + spring.height - getSeekRailVisualCenterOffset();
+      const railY = Math.round(railCenterY - railHeight * 0.5) + SEEK_RAIL_VISUAL_Y_NUDGE_PX;
       ctx.fillStyle = "rgba(15, 23, 42, 0.18)";
       ctx.fillRect(0, railY, activeRect.width, railHeight);
       ctx.fillStyle = "rgba(248, 250, 252, 0.34)";
