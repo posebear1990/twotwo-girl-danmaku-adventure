@@ -208,11 +208,5 @@
   width: 0;
   height: 0;
   display: none;
-  pointer-events: auto;
-  touch-action: none;
-  cursor: grab;
-}
-
-.twotwo-girl-danmaku-adventure-seek-rail[data-dragging="true"] {
-  cursor: grabbing;
+  pointer-events: none;
 }

@@ -34,14 +34,30 @@ const SPRING_IDLE_BOUNCE_RESET_COUNT = 5;
 const BASE_SEEK_RAIL_VISUAL_HEIGHT = 3;
 const BASE_SEEK_RAIL_HIT_HEIGHT = 26;
 const BASE_SEEK_RAIL_CENTER_OFFSET = 6;
+const SEEK_RAIL_FALLBACK_LEFT_INSET_MIN = 72;
+const SEEK_RAIL_FALLBACK_LEFT_INSET_MAX = 148;
+const SEEK_RAIL_FALLBACK_RIGHT_INSET_MIN = 116;
+const SEEK_RAIL_FALLBACK_RIGHT_INSET_MAX = 228;
+const BASE_SEEK_TARGET_PADDING = 6;
 const BASE_WORLD_HEIGHT = 520;
 const MAX_WORLD_SCALE = 1.85;
-const START_PROMPT_TEXT = "PRESS J / K / \u2191 TO START";
+const START_PROMPT_TEXT = "PRESS J / K TO START";
 const OPENING_AIRBORNE_TARGET_SECONDS = 20;
 const OPENING_AIRBORNE_MESSAGE = "FOOTLESS BIRD";
 const ACHIEVEMENT_BANNER_DURATION_MS = 30000;
 const VIDEO_REPLAY_RESET_THRESHOLD_SECONDS = 1.25;
 const VIDEO_END_EPSILON_SECONDS = 0.2;
+const SEEK_RAIL_SELECTOR_CANDIDATES = [
+  ".bpx-player-progress-wrap",
+  ".bpx-player-progress",
+  ".bpx-player-shadow-progress-area",
+  ".bpx-player-shadow-progress-wrap",
+  ".bilibili-player-video-progress-wrap",
+  ".bilibili-player-video-progress",
+  ".squirtle-progress-wrap",
+  ".squirtle-progress",
+  "[role='slider']"
+] as const;
 
 type HudTheme = "dark" | "light";
 
@@ -90,12 +106,23 @@ interface AchievementState {
   bannerUntil: number;
 }
 
+interface SeekRailBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 function approach(current: number, target: number, maxDelta: number): number {
   if (current < target) {
     return Math.min(current + maxDelta, target);
   }
 
   return Math.max(current - maxDelta, target);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function parseCssColor(
@@ -364,7 +391,7 @@ function isJumpKey(key: string): boolean {
 }
 
 function isStartJumpKey(key: string): boolean {
-  return key === "k" || key === "K" || key === "ArrowUp";
+  return key === "k" || key === "K";
 }
 
 function isStartRunKey(key: string): boolean {
@@ -449,6 +476,9 @@ export function createGameController(): { start(): void } {
   let controlsCaptured = false;
   let draggingSeekRail = false;
   let draggingSeekPointerId: number | null = null;
+  let lastPointerClientX: number | null = null;
+  let lastPointerClientY: number | null = null;
+  let appliedCursor: string | null = null;
   let score = 0;
   let currentPlatformId: string | null = null;
   let currentVideoSessionKey = location.pathname;
@@ -750,6 +780,134 @@ export function createGameController(): { start(): void } {
     return scaleWorld(BASE_SEEK_RAIL_CENTER_OFFSET);
   }
 
+  function getSeekRailFallbackLeftInset(): number {
+    return clamp(activeRect.width * 0.12, SEEK_RAIL_FALLBACK_LEFT_INSET_MIN, SEEK_RAIL_FALLBACK_LEFT_INSET_MAX);
+  }
+
+  function getSeekRailFallbackRightInset(): number {
+    return clamp(activeRect.width * 0.18, SEEK_RAIL_FALLBACK_RIGHT_INSET_MIN, SEEK_RAIL_FALLBACK_RIGHT_INSET_MAX);
+  }
+
+  function getNativeSeekRailRect(): DOMRect | null {
+    const host = getHudInlineAnchor();
+    if (!host) {
+      return null;
+    }
+
+    const minWidth = Math.max(activeRect.width * 0.35, 120);
+    const maxHeight = Math.max(24, activeRect.height * 0.14);
+    const searchTop = activeRect.bottom - Math.max(88, activeRect.height * 0.28);
+    const searchBottom = activeRect.bottom + 16;
+
+    for (const selector of SEEK_RAIL_SELECTOR_CANDIDATES) {
+      const candidates = host.querySelectorAll<HTMLElement>(selector);
+      for (const candidate of candidates) {
+        const rect = candidate.getBoundingClientRect();
+        if (rect.width < minWidth || rect.height <= 0 || rect.height > maxHeight) {
+          continue;
+        }
+
+        if (rect.bottom < searchTop || rect.top > searchBottom) {
+          continue;
+        }
+
+        const left = clamp(rect.left, activeRect.left, activeRect.right);
+        const right = clamp(rect.right, activeRect.left, activeRect.right);
+        if (right - left < minWidth) {
+          continue;
+        }
+
+        return new DOMRect(left, rect.top, right - left, rect.height);
+      }
+    }
+
+    return null;
+  }
+
+  function getSeekRailBounds(): SeekRailBounds {
+    const hitHeight = getSeekRailHitHeight();
+    const nativeRect = getNativeSeekRailRect();
+
+    let left = activeRect.left;
+    let width = activeRect.width;
+    let centerY = activeRect.top + getSeekRailCenterY();
+
+    if (nativeRect) {
+      left = nativeRect.left;
+      width = nativeRect.width;
+      centerY = nativeRect.top + nativeRect.height * 0.5;
+    } else {
+      const leftInset = getSeekRailFallbackLeftInset();
+      const rightInset = getSeekRailFallbackRightInset();
+      left = activeRect.left + leftInset;
+      width = Math.max(activeRect.width - leftInset - rightInset, Math.min(activeRect.width * 0.28, 160));
+    }
+
+    const top = clamp(
+      centerY - hitHeight * 0.5,
+      activeRect.top,
+      Math.max(activeRect.top, activeRect.bottom - hitHeight)
+    );
+
+    return {
+      left,
+      top,
+      width: Math.max(width, 1),
+      height: hitHeight
+    };
+  }
+
+  function isPointInsideBounds(clientX: number, clientY: number, bounds: SeekRailBounds): boolean {
+    return (
+      clientX >= bounds.left &&
+      clientX <= bounds.left + bounds.width &&
+      clientY >= bounds.top &&
+      clientY <= bounds.top + bounds.height
+    );
+  }
+
+  function getSeekTargetPadding(): number {
+    return Math.max(scaleWorld(BASE_SEEK_TARGET_PADDING), 6);
+  }
+
+  function getSpringDragBounds(): SeekRailBounds {
+    const padding = getSeekTargetPadding();
+    return {
+      left: activeRect.left + spring.x - padding,
+      top: activeRect.top + spring.y - padding,
+      width: spring.width + padding * 2,
+      height: spring.height + padding * 2
+    };
+  }
+
+  function getHeroDragBounds(): SeekRailBounds {
+    const padding = getSeekTargetPadding();
+    const heroWidth = getHeroWidth();
+    const heroHeight = getHeroHeight();
+    return {
+      left: activeRect.left + hero.x - padding,
+      top: activeRect.top + hero.y - padding,
+      width: heroWidth + padding * 2,
+      height: heroHeight + padding * 2
+    };
+  }
+
+  function isPointInsideSeekRail(clientX: number, clientY: number): boolean {
+    return isPointInsideBounds(clientX, clientY, getSeekRailBounds());
+  }
+
+  function isPointInsideSeekDragTarget(clientX: number, clientY: number): boolean {
+    if (isPointInsideSeekRail(clientX, clientY)) {
+      return true;
+    }
+
+    if (spring.active && isPointInsideBounds(clientX, clientY, getSpringDragBounds())) {
+      return true;
+    }
+
+    return hero.visible && isPointInsideBounds(clientX, clientY, getHeroDragBounds());
+  }
+
   function getRunFrameDistance(): number {
     return scaleWorld(24);
   }
@@ -828,6 +986,7 @@ export function createGameController(): { start(): void } {
     hud.dataset.visible = "false";
     startPrompt.dataset.visible = "false";
     seekRail.style.display = "none";
+    syncSeekCursor(true);
     releaseControls();
   }
 
@@ -838,12 +997,12 @@ export function createGameController(): { start(): void } {
       return;
     }
 
-    const railHitHeight = getSeekRailHitHeight();
+    const seekBounds = getSeekRailBounds();
     seekRail.style.display = "block";
-    seekRail.style.left = "0px";
-    seekRail.style.top = `${Math.max(0, activeRect.top + getSeekRailCenterY() - railHitHeight * 0.5)}px`;
-    seekRail.style.width = `${activeRect.width}px`;
-    seekRail.style.height = `${railHitHeight}px`;
+    seekRail.style.left = `${seekBounds.left - activeRect.left}px`;
+    seekRail.style.top = `${seekBounds.top}px`;
+    seekRail.style.width = `${seekBounds.width}px`;
+    seekRail.style.height = `${seekBounds.height}px`;
     seekRail.dataset.dragging = String(draggingSeekRail);
   }
 
@@ -868,12 +1027,49 @@ export function createGameController(): { start(): void } {
     seekRail.dataset.dragging = "false";
   }
 
+  function applyDocumentCursor(nextCursor: string | null): void {
+    if (appliedCursor === nextCursor) {
+      return;
+    }
+
+    appliedCursor = nextCursor;
+    document.documentElement.style.cursor = nextCursor ?? "";
+  }
+
+  function syncSeekCursor(forceReset = false): void {
+    if (forceReset || root.hidden || isFullscreenSuppressed()) {
+      applyDocumentCursor(null);
+      return;
+    }
+
+    if (draggingSeekRail) {
+      applyDocumentCursor("grabbing");
+      return;
+    }
+
+    if (
+      !canDragSeekRail() ||
+      lastPointerClientX === null ||
+      lastPointerClientY === null ||
+      !isPointInsideSeekDragTarget(lastPointerClientX, lastPointerClientY)
+    ) {
+      applyDocumentCursor(null);
+      return;
+    }
+
+    applyDocumentCursor("grab");
+  }
+
   function applySeekFromClientX(clientX: number): void {
     if (!hasSeekableDuration(activeVideo)) {
       return;
     }
 
-    const progress = Math.min(Math.max((clientX - activeRect.left) / Math.max(activeRect.width, 1), 0), 1);
+    const seekBounds = getSeekRailBounds();
+    const progress = Math.min(
+      Math.max((clientX - seekBounds.left) / Math.max(seekBounds.width, 1), 0),
+      1
+    );
     const nextTime = progress * activeVideo.duration;
     activeVideo.currentTime = nextTime;
 
@@ -1405,6 +1601,8 @@ export function createGameController(): { start(): void } {
     syncDebugDataset();
     syncSeekRailInteractivity();
     syncHud();
+    syncSeekCursor();
+    const seekRailBounds = canDragSeekRail() ? getSeekRailBounds() : null;
 
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1412,13 +1610,15 @@ export function createGameController(): { start(): void } {
 
     ctx.save();
     ctx.translate(0, activeRect.top - getOverlayTop());
-    if (canDragSeekRail()) {
+    if (seekRailBounds) {
       const railHeight = getSeekRailVisualHeight();
-      const railY = Math.round(getSeekRailCenterY() - railHeight * 0.5);
+      const railX = Math.round(seekRailBounds.left - activeRect.left);
+      const railWidth = Math.round(seekRailBounds.width);
+      const railY = Math.round(seekRailBounds.top - activeRect.top + (seekRailBounds.height - railHeight) * 0.5);
       ctx.fillStyle = "rgba(15, 23, 42, 0.18)";
-      ctx.fillRect(0, railY, activeRect.width, railHeight);
+      ctx.fillRect(railX, railY, railWidth, railHeight);
       ctx.fillStyle = "rgba(248, 250, 252, 0.34)";
-      ctx.fillRect(0, railY, spring.x + spring.width * 0.5, railHeight);
+      ctx.fillRect(railX, railY, Math.round(railWidth * spring.progress), railHeight);
     }
     if (spring.active) {
       drawSpring(ctx, spring);
@@ -1552,41 +1752,57 @@ export function createGameController(): { start(): void } {
   }
 
   function handleSeekPointerDown(event: PointerEvent): void {
+    lastPointerClientX = event.clientX;
+    lastPointerClientY = event.clientY;
+
     if (!canDragSeekRail() || event.button !== 0) {
+      syncSeekCursor();
+      return;
+    }
+
+    if (!isPointInsideSeekDragTarget(event.clientX, event.clientY)) {
+      syncSeekCursor();
       return;
     }
 
     draggingSeekRail = true;
     draggingSeekPointerId = event.pointerId;
-    seekRail.setPointerCapture(event.pointerId);
     applySeekFromClientX(event.clientX);
     syncSeekRailInteractivity();
+    syncSeekCursor();
     event.preventDefault();
     event.stopPropagation();
   }
 
   function handleSeekPointerMove(event: PointerEvent): void {
+    lastPointerClientX = event.clientX;
+    lastPointerClientY = event.clientY;
+
     if (!draggingSeekRail || draggingSeekPointerId !== event.pointerId) {
+      syncSeekCursor();
       return;
     }
 
     applySeekFromClientX(event.clientX);
     syncSeekRailInteractivity();
+    syncSeekCursor();
     event.preventDefault();
     event.stopPropagation();
   }
 
   function handleSeekPointerUp(event: PointerEvent): void {
+    lastPointerClientX = event.clientX;
+    lastPointerClientY = event.clientY;
+
     if (!draggingSeekRail || draggingSeekPointerId !== event.pointerId) {
+      syncSeekCursor();
       return;
     }
 
     applySeekFromClientX(event.clientX);
-    if (seekRail.hasPointerCapture(event.pointerId)) {
-      seekRail.releasePointerCapture(event.pointerId);
-    }
     stopSeekDragging();
     syncSeekRailInteractivity();
+    syncSeekCursor();
     event.preventDefault();
     event.stopPropagation();
   }
@@ -1600,10 +1816,10 @@ export function createGameController(): { start(): void } {
     });
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     window.addEventListener("keyup", handleKeyUp, { capture: true });
+    window.addEventListener("pointerdown", handleSeekPointerDown, { capture: true });
     window.addEventListener("pointermove", handleSeekPointerMove, { capture: true });
     window.addEventListener("pointerup", handleSeekPointerUp, { capture: true });
     window.addEventListener("pointercancel", handleSeekPointerUp, { capture: true });
-    seekRail.addEventListener("pointerdown", handleSeekPointerDown);
     mutationObserver.observe(document.documentElement, {
       childList: true,
       subtree: true
